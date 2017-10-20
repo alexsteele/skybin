@@ -18,7 +18,7 @@ func runGet(args []string) {
 		log.Fatal("must provide filename")
 	}
 
-	repo, err := skybinrepo.Load()
+	repo, err := skybinrepo.Open()
 	if err != nil {
 		log.Fatal(err)
 	}

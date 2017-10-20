@@ -1,147 +1,242 @@
 package repo
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"fmt"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/user"
 	"path"
-	"skybin/core"
-	pb "skybin/core/proto"
-	"time"
+	core "skybin/core/proto"
+	provider "skybin/provider/remote"
 )
 
-type Config struct {
-	UserId             string   `json:"userId"`
-	DhtAddress         string   `json:"dhtAddress"`
-	ApiAddress         string   `json:"apiAddress"`
-	BootstrapAddresses []string `json:"bootstrapAddresses"`
-	LogFolder          string   `json:"logFolder"`
+func DefaultHomeDir() (string, error) {
+	user, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	return path.Join(user.HomeDir, ".skybin"), nil
+}
+
+type Info struct {
+	HomeDir string
+	Config  *Config
 }
 
 type Repo interface {
-	Store(filename string) error
+	Info() Info
+	Put(filename string, opts *StorageOptions) error
 	ListFiles() ([]string, error)
 	Get(filename string, out io.Writer) error
-	Config() *Config
-	PeerStore() PeerStore
+	Sync() error
 }
 
 type repo struct {
 	homedir   string
 	config    *Config
-	rootBlock *core.MetaBlock
+	rootBlock *core.DirBlock
+	pcache    []core.PeerInfo // Known storage providers
+	logger    *log.Logger
 }
 
-func Load() (Repo, error) {
+func Open() (Repo, error) {
 	homedir, err := findHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	return LoadFrom(homedir)
+	return OpenAt(homedir)
 }
 
-func LoadFrom(homedir string) (Repo, error) {
+func OpenAt(homedir string) (Repo, error) {
 
 	err := checkRepo(homedir)
 	if err != nil {
 		return nil, err
 	}
 
-	config, err := loadConfig(homedir)
+	config, err := loadConfig(path.Join(homedir, "config.json"))
 	if err != nil {
 		return nil, err
 	}
 
-	rootBlock, err := loadMetaBlock(homedir, makeMetaId(config.UserId, "/"))
+	rootBlock, err := loadDirBlock(path.Join(homedir, "user", makeBlockId(config.UserId, "/")))
 	if err != nil {
 		return nil, fmt.Errorf("Cannot load user's root block: %s", err)
+	}
+
+	logger := log.New(ioutil.Discard, "", log.Ldate|log.Ltime)
+	if config.LogEnabled && len(config.LogFolder) > 0 {
+		f, err := os.OpenFile(config.LogFolder, os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			return nil, err
+		}
+		logger.SetOutput(f)
+	} else if config.LogEnabled {
+		logger.SetOutput(os.Stdout)
 	}
 
 	return &repo{
 		homedir:   homedir,
 		config:    config,
 		rootBlock: rootBlock,
+		pcache:    nil,
+		logger:    logger,
 	}, nil
 }
 
-func (r *repo) Store(filename string) error {
+func (r *repo) Info() Info {
+	return Info{
+		HomeDir: r.homedir,
+		Config:  r.config,
+	}
+}
 
-	providers, err := loadProviderList(r.homedir)
+func (r *repo) ContainsFile(filename string) bool {
+	for _, entry := range r.rootBlock.Files {
+		if entry.Name == filename {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *repo) Put(filename string, opts *StorageOptions) error {
+
+	finfo, err := os.Stat(filename)
 	if err != nil {
 		return err
 	}
 
-	var client pb.PeerClient = nil
-	var provider core.PeerInfo
-	for _, peer := range providers {
-		conn, err := grpc.Dial(peer.Addr, grpc.WithInsecure(), grpc.WithTimeout(3*time.Second))
+	if finfo.IsDir() {
+		return errors.New("directories not supported")
+	}
+
+	if opts == nil {
+		opts = r.config.DefaultStorageOpts(filename)
+	}
+
+	if r.ContainsFile(opts.FileName) {
+		var name string
+		for i := 1; ; i++ {
+			name = fmt.Sprintf("%s (%d)", opts.FileName, i)
+			if !r.ContainsFile(name) {
+				break
+			}
+		}
+		opts.FileName = name
+	}
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Determine how many blocks are in the file.
+	blockInfos, err := getBlockInfo(file, r.config.BlockSize)
+	if err != nil {
+		return err
+	}
+
+	// Rewind the file.
+	_, err = file.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return err
+	}
+
+	pvdrinfo, err := r.listProviders()
+	if err != nil {
+		return err
+	}
+
+	var providers []core.Provider
+	for _, pinfo := range pvdrinfo {
+		pvdr, err := provider.Dial(pinfo.Addr)
 		if err != nil {
+			r.logger.Println("cannot dial", pinfo.Addr, "error:", err)
 			continue
 		}
-		defer conn.Close()
-		client = pb.NewPeerClient(conn)
-		provider = peer
-		break
-
-	}
-	if client == nil {
-		return fmt.Errorf("Cannot find storage provider")
+		defer pvdr.Close()
+		providers = append(providers, pvdr)
 	}
 
-	blockData, err := ioutil.ReadFile(filename)
+	inode := core.INodeBlock{
+		ID:      makeBlockId(r.config.UserId, opts.FileName),
+		Name:    opts.FileName,
+		OwnerID: r.config.UserId,
+		Size:    finfo.Size(),
+	}
+
+	var contractInfos [][]contractInfo
+	for _, binfo := range blockInfos {
+
+		cinfos, err := r.negotiateContracts(binfo, providers)
+		if err != nil {
+			return fmt.Errorf("unable to negotiate storage contracts for block: %s", err)
+		}
+		contractInfos = append(contractInfos, cinfos)
+
+		var contracts []*core.Contract
+		for _, cinfo := range cinfos {
+			contracts = append(contracts, cinfo.contract)
+		}
+
+		inode.Blocks = append(inode.Blocks, &core.BlockRef{
+			ID:        binfo.ID,
+			Contracts: contracts,
+		})
+	}
+
+	// Negotiate contract for inode.
+	cinfos, err := r.negotiateContracts(blockInfo{ID: inode.ID, Size: 1024 * 1024}, providers)
 	if err != nil {
-		return fmt.Errorf("Cannot not read file: %s", err)
+		return err
+	}
+	for _, cinfo := range cinfos {
+		inode.Contracts = append(inode.Contracts, cinfo.contract)
 	}
 
-	blockId := hash(blockData)
-	block := pb.Block{Data: blockData}
-	request := pb.StoreBlockRequest{
-		BlockId: blockId,
-		Block:   &block,
+	// Upload file blocks
+	for _, contracts := range contractInfos {
+		block, err := readNextBlock(file, r.config.BlockSize)
+		if err != nil {
+			return err
+		}
+
+		for _, cinfo := range contracts {
+			err := cinfo.provider.StoreBlock(cinfo.contract.BlockID, block)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	_, err = client.StoreBlock(context.TODO(), &request)
+	// Upload inode block
+	inodeBytes, err := marshalBlock(&inode)
 	if err != nil {
-		return fmt.Errorf("Cannot store block: %s", err)
+		return err
 	}
 
-	contract := core.Contract{
-		BlockID:    blockId,
-		BlockSize:  int64(len(blockData)),
-		RenterID:   r.Config().UserId,
-		ProviderID: provider.ID,
+	for _, cinfo := range cinfos {
+		err := cinfo.provider.StoreBlock(cinfo.contract.BlockID, inodeBytes)
+		if err != nil {
+			return err
+		}
 	}
 
-	blockInfo := core.BlockInfo{
-		ID:        blockId,
-		Contracts: []core.Contract{contract},
-	}
-
-	// Create an INode block for file
-	metaBlock := core.MetaBlock{
-		ID:           makeMetaId(r.Config().UserId, filename),
-		Name:         filename,
-		LastModified: time.Now(),
-		OwnerID:      r.Config().UserId,
-		Blocks:       []core.BlockInfo{blockInfo},
-		Size:         int64(len(blockData)),
-	}
-
-	// Save it to the repo.
-	err = saveMetaBlock(r.homedir, metaBlock.ID, metaBlock)
+	// Save inode to the repo cache
+	err = saveBlock(path.Join(r.homedir, "user", inode.ID), &inode)
 	if err != nil {
 		return err
 	}
 
 	// Add record of the file to the user's root block
-	r.rootBlock.Blocks = append(r.rootBlock.Blocks, core.BlockInfo{ID: metaBlock.ID, Name: filename})
-	err = saveMetaBlock(r.homedir, r.rootBlock.ID, r.rootBlock)
+	r.rootBlock.Files = append(r.rootBlock.Files, &core.NamedBlockRef{ID: inode.ID, Name: inode.Name})
+	err = saveBlock(path.Join(r.homedir, "user", r.rootBlock.ID), r.rootBlock)
 	if err != nil {
 		return err
 	}
@@ -151,156 +246,139 @@ func (r *repo) Store(filename string) error {
 
 func (r *repo) ListFiles() ([]string, error) {
 	var res []string
-	for _, blockInfo := range r.rootBlock.Blocks {
+	for _, blockInfo := range r.rootBlock.Files {
 		res = append(res, blockInfo.Name)
 	}
 	return res, nil
 }
 
 func (r *repo) Get(filename string, out io.Writer) error {
-	metaBlock, err := r.findMetaBlock(filename)
+
+	// Find locally cached inode for file.
+	blockId := makeBlockId(r.config.UserId, filename)
+	path := path.Join(r.homedir, "user", blockId)
+
+	inode, err := loadINodeBlock(path)
 	if err != nil {
-		return err
-	}
-
-	// TODO: In addition to being cached locally, provider addresses
-	// will need to be searchable in the network.
-	// We should probably also store a list of locations with each block.
-	providers, err := loadProviderList(r.homedir)
-	if err != nil {
-		return err
-	}
-
-	providerMap := map[string]core.PeerInfo{}
-	for _, provider := range providers {
-		providerMap[provider.ID] = provider
-	}
-
-	for _, blockInfo := range metaBlock.Blocks {
-		found := false
-		for _, contract := range blockInfo.Contracts {
-			providerInfo, exists := providerMap[contract.ProviderID]
-			if !exists {
-				continue
-			}
-			conn, err := grpc.Dial(providerInfo.Addr, grpc.WithInsecure())
-			if err != nil {
-				continue
-			}
-			defer conn.Close()
-			client := pb.NewPeerClient(conn)
-			req := pb.GetBlockRequest{BlockId: blockInfo.ID}
-			resp, err := client.GetBlock(context.TODO(), &req)
-			if err != nil {
-				continue
-			}
-			// TODO: Check short write
-			_, err = out.Write(resp.Block.Data)
-			if err != nil {
-				return err
-			}
-			found = true
-			break
-
+		if os.IsNotExist(err) {
+			return errors.New("cannot find record of file " + filename)
 		}
-		if !found {
-			return errors.New("Unable to download file block")
+		return err
+	}
+
+	// Download file blocks.
+	for _, blockRef := range inode.Blocks {
+		data, err := r.downloadBlock(blockRef)
+		if err != nil {
+			return fmt.Errorf("cannot download file block. error: %s", err)
+		}
+		buf := bytes.NewBuffer(data)
+		_, err = io.Copy(out, buf)
+		if err != nil {
+			return fmt.Errorf("cannot download file block. error: %s", err)
 		}
 	}
 	return nil
 }
 
-func (r *repo) findMetaBlock(filename string) (*core.MetaBlock, error) {
-	for _, blockInfo := range r.rootBlock.Blocks {
-		if blockInfo.Name == filename {
-			return loadMetaBlock(r.homedir, blockInfo.ID)
+func (r *repo) Sync() error {
+	// TODO: Pull and merge updates to remote metadata.
+
+	var providers []core.Provider
+	if len(r.rootBlock.Contracts) == 0 {
+
+		// Create storage contracts for root block.
+		pinfos, err := r.listProviders()
+		if err != nil {
+			return err
+		}
+
+		var pvdrs []core.Provider
+		for _, pinfo := range pinfos {
+			pvdr, err := provider.Dial(pinfo.Addr)
+			if err != nil {
+				continue
+			}
+			defer pvdr.Close()
+			pvdrs = append(pvdrs, pvdr)
+		}
+
+		binfo := blockInfo{
+			ID:   r.rootBlock.ID,
+			Size: 1024 * 1024,
+		}
+
+		cinfos, err := r.negotiateContracts(binfo, pvdrs)
+		if err != nil {
+			return err
+		}
+
+		for _, cinfo := range cinfos {
+			r.rootBlock.Contracts = append(r.rootBlock.Contracts, cinfo.contract)
+			providers = append(providers, cinfo.provider)
+		}
+
+	} else {
+		for _, contract := range r.rootBlock.Contracts {
+			pinfo, err := r.getProviderInfo(contract.ProviderID)
+			if err != nil {
+				continue
+			}
+			pvdr, err := provider.Dial(pinfo.Addr)
+			if err != nil {
+				continue
+			}
+			defer pvdr.Close()
+			providers = append(providers, pvdr)
 		}
 	}
-	return nil, fmt.Errorf("Information for file %s not found", filename)
-}
 
-func (r *repo) Config() *Config {
-	return r.config
-}
-
-func (r *repo) PeerStore() PeerStore {
-	return &peerStore{
-		peerdir: path.Join(r.homedir, "peer"),
+	if len(providers) == 0 {
+		return errors.New("cannot connect to any metadata storage providers")
 	}
-}
 
-func makeMetaId(userId string, filename string) string {
-	name := fmt.Sprintf("%s:%s", userId, filename)
-	return hash([]byte(name))
-}
-
-func saveMetaBlock(homedir string, blockId string, block interface{}) error {
-	data, err := json.MarshalIndent(block, "", "    ")
+	blockBytes, err := marshalBlock(&r.rootBlock)
 	if err != nil {
 		return err
 	}
-	filename := path.Join(homedir, "user", blockId)
-	return ioutil.WriteFile(filename, data, 0600)
-}
 
-func loadProviderList(homedir string) ([]core.PeerInfo, error) {
-	path := path.Join(homedir, "providers.json")
-
-	bytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+	nupdated := 0
+	for _, pvdr := range providers {
+		err := pvdr.StoreBlock(r.rootBlock.ID, blockBytes)
+		if err != nil {
+			continue
+		}
+		nupdated++
 	}
 
-	var providers []core.PeerInfo
-	err = json.Unmarshal(bytes, &providers)
-	return providers, err
-}
-
-func loadMetaBlock(homedir string, blockId string) (*core.MetaBlock, error) {
-	path := path.Join(homedir, "user", blockId)
-
-	bytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+	if nupdated < len(r.rootBlock.Contracts)/2 {
+		return errors.New("unable to push metadata updates to enough providers")
 	}
 
-	block := &core.MetaBlock{}
-	err = json.Unmarshal(bytes, block)
-	if err != nil {
-		return nil, err
-	}
-
-	return block, nil
-}
-
-func loadConfig(homedir string) (*Config, error) {
-	configBytes, err := ioutil.ReadFile(path.Join(homedir, "config.json"))
-	if err != nil {
-		return nil, fmt.Errorf("Cannot read config: %s", err)
-	}
-
-	config := &Config{}
-	err = json.Unmarshal(configBytes, config)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot not parse config: %s", err)
-	}
-	return config, nil
-}
-
-func checkRepo(homedir string) error {
-	_, err := os.Stat(homedir)
-	if err != nil {
-		return fmt.Errorf("Cannot find skybin home directory: %s", err)
-	}
 	return nil
 }
 
-func DefaultHomeDir() (string, error) {
-	user, err := user.Current()
-	if err != nil {
-		return "", err
+func (r *repo) downloadBlock(ref *core.BlockRef) ([]byte, error) {
+	for _, contract := range ref.Contracts {
+		pinfo, err := r.getProviderInfo(contract.ProviderID)
+		if err != nil {
+			r.logger.Println("could not find provider info for", contract.ProviderID)
+			continue
+		}
+		pvdr, err := provider.Dial(pinfo.Addr)
+		if err != nil {
+			r.logger.Println("could not dial provider", pinfo)
+			continue
+		}
+		defer pvdr.Close()
+		block, err := pvdr.GetBlock(ref.ID)
+		if err != nil {
+			r.logger.Println("could not download block", ref.ID, "error:", err)
+			continue
+		}
+		return block, nil
 	}
-	return path.Join(user.HomeDir, ".skybin"), nil
+	return nil, errors.New("failed to download block")
 }
 
 func findHomeDir() (string, error) {
@@ -319,4 +397,12 @@ func findHomeDir() (string, error) {
 	}
 
 	return skybinHome, nil
+}
+
+func checkRepo(homedir string) error {
+	_, err := os.Stat(homedir)
+	if err != nil {
+		return fmt.Errorf("Cannot find skybin home directory: %s", err)
+	}
+	return nil
 }

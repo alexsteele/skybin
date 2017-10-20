@@ -1,93 +1,114 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
-	context "golang.org/x/net/context"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path"
-	pb "skybin/core/proto"
+	core "skybin/core/proto"
+	provider "skybin/provider/local"
 	skybinrepo "skybin/repo"
 	"time"
 )
 
 var serverCmd = Cmd{
 	Name:        "server",
-	Description: "Run a background process to handle peer traffic",
+	Description: "Run a provider server",
 	Usage:       "server",
 	Run:         runServer,
 }
 
-type peerserver struct {
-	store  skybinrepo.PeerStore
-	logger *log.Logger
+type server struct {
+	provider core.Provider
+	logger   *log.Logger
 }
 
-func (ps *peerserver) StoreBlock(ctxt context.Context, req *pb.StoreBlockRequest) (*pb.StoreBlockResponse, error) {
+func (ps *server) Info(ctxt context.Context, req *core.InfoRequest) (*core.InfoResponse, error) {
+	ps.logger.Println("get provider info")
+	info, err := ps.provider.Info()
+	if err != nil {
+		return nil, err
+	}
+	return &core.InfoResponse{Info: info}, nil
+}
+
+func (ps *server) Negotiate(ctxt context.Context, req *core.NegotiateRequest) (*core.NegotiateResponse, error) {
+	ps.logger.Println("create contract")
+	contract, err := ps.provider.Negotiate(req.Contract)
+	if err != nil {
+		return nil, err
+	}
+	return &core.NegotiateResponse{Contract: contract}, nil
+}
+
+func (ps *server) StoreBlock(ctxt context.Context, req *core.StoreBlockRequest) (*core.StoreBlockResponse, error) {
 	ps.logger.Println("store block id", req.BlockId)
-	err := ps.store.StoreBlock(req.BlockId, bytes.NewBuffer(req.Block.Data))
-	return &pb.StoreBlockResponse{}, err
+	err := ps.provider.StoreBlock(req.BlockId, req.Block.Data)
+	return &core.StoreBlockResponse{}, err
 }
 
-func (ps *peerserver) GetBlock(ctxt context.Context, req *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
+func (ps *server) GetBlock(ctxt context.Context, req *core.GetBlockRequest) (*core.GetBlockResponse, error) {
 	ps.logger.Println("get block id:", req.BlockId)
-	br, err := ps.store.GetBlock(req.BlockId)
+	bytes, err := ps.provider.GetBlock(req.BlockId)
 	if err != nil {
-		return &pb.GetBlockResponse{}, err
+		return &core.GetBlockResponse{}, err
 	}
-	defer br.Close()
-	bytes, err := ioutil.ReadAll(br)
-	if err != nil {
-		return &pb.GetBlockResponse{}, err
-	}
-	return &pb.GetBlockResponse{
-		Block: &pb.Block{Data: bytes},
+	return &core.GetBlockResponse{
+		Block: &core.Block{Data: bytes},
 	}, nil
 }
 
 func runServer(args []string) {
 
-	repo, err := skybinrepo.Load()
+	repo, err := skybinrepo.Open()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	config := repo.Config()
+	rinfo := repo.Info()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	options := provider.Options{
+		ProviderInfo: rinfo.Config.ProviderInfo,
+		Dir:          path.Join(rinfo.HomeDir, "peer"),
+	}
+
+	provider, err := provider.New(options)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	if len(config.LogFolder) > 0 {
-		err := os.MkdirAll(config.LogFolder, 0666)
+	if len(rinfo.Config.LogFolder) > 0 {
+		err := os.MkdirAll(rinfo.Config.LogFolder, 0666)
 		if err != nil {
-			log.Fatal("Cannot create log folder: ", err)
+			log.Fatal("cannot create log folder: ", err)
 		}
-		fname := fmt.Sprintf("skybin_log_%s.log", time.Now().Format("1-2-2006_15:04:05"))
-		f, err := os.Create(path.Join(config.LogFolder, fname))
+		fname := fmt.Sprintf("provider_log_%s.log", time.Now().Format("1-2-2006_15:04:05"))
+		f, err := os.Create(path.Join(rinfo.Config.LogFolder, fname))
 		if err != nil {
-			log.Fatal("Cannot create log file: ", err)
+			log.Fatal("cannot create log file: ", err)
 		}
 		defer f.Close()
 		logger.SetOutput(f)
 	}
 
-	server := grpc.NewServer()
-	peerServer := peerserver{
-		store:  repo.PeerStore(),
-		logger: logger,
+	grpcServer := grpc.NewServer()
+	server := server{
+		provider: provider,
+		logger:   logger,
 	}
-	pb.RegisterPeerServer(server, &peerServer)
+	core.RegisterProviderServer(grpcServer, &server)
 
-	listener, err := net.Listen("tcp", config.ApiAddress)
+	listener, err := net.Listen("tcp", rinfo.Config.ProviderAddress)
 	if err != nil {
-		log.Fatalf("Cannot run API server at address %s: %s", config.ApiAddress, err)
+		log.Fatalf("cannot run API server at address %s: %s", listener.Addr(), err)
 	}
-	logger.Println("Starting peer server at", config.ApiAddress)
-	server.Serve(listener)
-
+	logger.Println("Starting provider server at", listener.Addr())
+	log.Fatal(grpcServer.Serve(listener))
 }

@@ -20,6 +20,7 @@ func runInit(args []string) {
 
 	if len(*homeFlag) > 0 {
 		repo.Init(*homeFlag)
+		return
 	}
 
 	homedir, err := repo.DefaultHomeDir()

@@ -3,8 +3,52 @@ syntax = "proto3";
 
 package proto;
 
+message PeerInfo {
+    string ID = 1;
+    string Addr = 2;
+}
+
 message Block {
     bytes Data = 1;
+}
+
+message BlockRef {
+    string ID = 1;
+    repeated string Locations = 2;
+    repeated Contract Contracts = 3;
+}
+
+message NamedBlockRef {
+    string ID = 1;
+    string Name = 2;
+    repeated string Locations = 3;
+    repeated Contract Contracts = 4;
+}
+
+message DirBlock {
+    string ID = 1;
+    string Name = 2;
+    repeated Contract Contracts = 3;
+    string OwnerID = 4;
+    repeated NamedBlockRef Files = 5;
+}
+
+message INodeBlock {
+    string ID = 1;
+    string Name = 2;
+    repeated Contract Contracts = 3;
+    string OwnerID = 4;
+    repeated BlockRef Blocks = 5;
+    int64 Size = 6;
+}
+
+message Contract {
+    string blockID = 1;
+    int64 blockSize = 2;
+    string renterID = 3;
+    string providerID = 4;
+    string renterSignature = 5;
+    string providerSignature = 6;
 }
 
 message StoreBlockRequest {
@@ -13,7 +57,6 @@ message StoreBlockRequest {
 }
 
 message StoreBlockResponse {
-    
 }
 
 message GetBlockRequest {
@@ -24,8 +67,31 @@ message GetBlockResponse {
     Block block = 1;
 }
 
-service Peer {
+message NegotiateRequest {
+    Contract contract = 1;
+}
+
+message NegotiateResponse {
+    Contract contract = 2;
+    string StoreToken = 3;
+}
+
+message InfoRequest {
+}
+
+message ProviderInfo {
+    string ID = 1;
+    int32 maxBlockSize = 2;
+    // TODO: Accepted currencies, rates charged.
+}
+
+message InfoResponse {
+    ProviderInfo info = 1;
+}
+
+service Provider {
+    rpc Info(InfoRequest) returns (InfoResponse) {}
+    rpc Negotiate(NegotiateRequest) returns (NegotiateResponse) {}
     rpc StoreBlock(StoreBlockRequest) returns (StoreBlockResponse) {}
     rpc GetBlock(GetBlockRequest) returns (GetBlockResponse) {}
-        
 }

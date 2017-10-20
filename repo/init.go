@@ -3,25 +3,16 @@ package repo
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
 	"crypto/x509"
 	"encoding/asn1"
-	"encoding/base32"
 	"encoding/json"
 	"encoding/pem"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
-	"skybin/core"
-	"time"
+	core "skybin/core/proto"
 )
-
-func hash(data []byte) string {
-	h := sha1.New()
-	h.Write(data)
-	return base32.StdEncoding.EncodeToString(h.Sum(nil))
-}
 
 func Init(homedir string) {
 
@@ -41,6 +32,11 @@ func Init(homedir string) {
 	savePrivateKey(serverkey, path.Join(homedir, "keys", "nodeid"))
 	savePublicKey(serverkey.PublicKey, path.Join(homedir, "keys", "nodeid.pub"))
 
+	// Create node ID
+	bytes, err := asn1.Marshal(serverkey.PublicKey)
+	checkErr(err)
+	nodeId := hash(bytes)
+
 	// Create user keys
 	userkey, err := rsa.GenerateKey(rand.Reader, 2048)
 	checkErr(err)
@@ -48,29 +44,23 @@ func Init(homedir string) {
 	savePublicKey(userkey.PublicKey, path.Join(homedir, "keys", "userid.pub"))
 
 	// Create user ID
-	bytes, err := asn1.Marshal(userkey.PublicKey)
+	bytes, err = asn1.Marshal(userkey.PublicKey)
 	checkErr(err)
 	userId := hash(bytes)
 
 	// Create and save default repo config file
-	config := Config{
-		UserId:     userId,
-		DhtAddress: "0.0.0.0:8001",
-		ApiAddress: "0.0.0.0:8002",
-	}
-	configBytes, err := json.MarshalIndent(&config, "", "    ")
+	config := defaultConfig(userId, nodeId)
+	configBytes, err := json.MarshalIndent(config, "", "    ")
 	checkErr(err)
 	checkErr(ioutil.WriteFile(path.Join(homedir, "config.json"), configBytes, 0666))
 
 	// Create and save the user's root block
-	rootBlock := core.MetaBlock{
-		ID:           makeMetaId(userId, "/"),
-		Name:         "/",
-		LastModified: time.Now(),
-		OwnerID:      userId,
+	rootBlock := core.DirBlock{
+		ID:      makeBlockId(userId, "/"),
+		Name:    "/",
+		OwnerID: userId,
 	}
-
-	checkErr(saveMetaBlock(homedir, rootBlock.ID, &rootBlock))
+	checkErr(saveBlock(path.Join(homedir, "user", rootBlock.ID), &rootBlock))
 }
 
 func savePrivateKey(key *rsa.PrivateKey, path string) {
@@ -100,6 +90,6 @@ func savePemBlock(block *pem.Block, path string) {
 
 func checkErr(err error) {
 	if err != nil {
-		log.Fatal("init failure: ", err)
+		log.Fatal("init error:", err)
 	}
 }

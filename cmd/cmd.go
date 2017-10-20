@@ -18,7 +18,9 @@ var Commands = []Cmd{
 	storeCmd,
 	listCmd,
 	getCmd,
+	syncCmd,
 	serverCmd,
+	infoCmd,
 }
 
 func Usage() {

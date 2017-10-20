@@ -6,23 +6,23 @@ import (
 )
 
 var storeCmd = Cmd{
-	Name:        "store",
+	Name:        "put",
 	Description: "Store a file in the skybin network",
-	Usage:       "store <path>",
-	Run:         runStore,
+	Usage:       "put <path>",
+	Run:         runPut,
 }
 
-func runStore(args []string) {
+func runPut(args []string) {
 	if len(args) < 1 {
 		log.Fatal("must provide path")
 	}
 
-	repo, err := skybinrepo.Load()
+	repo, err := skybinrepo.Open()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = repo.Store(args[0])
+	err = repo.Put(args[0], nil)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -15,7 +15,7 @@ var listCmd = Cmd{
 
 func runList(args []string) {
 
-	repo, err := skybinrepo.Load()
+	repo, err := skybinrepo.Open()
 	if err != nil {
 		log.Fatal(err)
 	}

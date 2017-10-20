@@ -8,11 +8,22 @@ It is generated from these files:
 	skybin.proto
 
 It has these top-level messages:
+	PeerInfo
 	Block
+	BlockRef
+	NamedBlockRef
+	DirBlock
+	INodeBlock
+	Contract
 	StoreBlockRequest
 	StoreBlockResponse
 	GetBlockRequest
 	GetBlockResponse
+	NegotiateRequest
+	NegotiateResponse
+	InfoRequest
+	ProviderInfo
+	InfoResponse
 */
 package proto
 
@@ -36,6 +47,30 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto1.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type PeerInfo struct {
+	ID   string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Addr string `protobuf:"bytes,2,opt,name=Addr" json:"Addr,omitempty"`
+}
+
+func (m *PeerInfo) Reset()                    { *m = PeerInfo{} }
+func (m *PeerInfo) String() string            { return proto1.CompactTextString(m) }
+func (*PeerInfo) ProtoMessage()               {}
+func (*PeerInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+
+func (m *PeerInfo) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *PeerInfo) GetAddr() string {
+	if m != nil {
+		return m.Addr
+	}
+	return ""
+}
+
 type Block struct {
 	Data []byte `protobuf:"bytes,1,opt,name=Data,proto3" json:"Data,omitempty"`
 }
@@ -43,13 +78,245 @@ type Block struct {
 func (m *Block) Reset()                    { *m = Block{} }
 func (m *Block) String() string            { return proto1.CompactTextString(m) }
 func (*Block) ProtoMessage()               {}
-func (*Block) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (*Block) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 func (m *Block) GetData() []byte {
 	if m != nil {
 		return m.Data
 	}
 	return nil
+}
+
+type BlockRef struct {
+	ID        string      `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Locations []string    `protobuf:"bytes,2,rep,name=Locations" json:"Locations,omitempty"`
+	Contracts []*Contract `protobuf:"bytes,3,rep,name=Contracts" json:"Contracts,omitempty"`
+}
+
+func (m *BlockRef) Reset()                    { *m = BlockRef{} }
+func (m *BlockRef) String() string            { return proto1.CompactTextString(m) }
+func (*BlockRef) ProtoMessage()               {}
+func (*BlockRef) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+func (m *BlockRef) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *BlockRef) GetLocations() []string {
+	if m != nil {
+		return m.Locations
+	}
+	return nil
+}
+
+func (m *BlockRef) GetContracts() []*Contract {
+	if m != nil {
+		return m.Contracts
+	}
+	return nil
+}
+
+type NamedBlockRef struct {
+	ID        string      `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Name      string      `protobuf:"bytes,2,opt,name=Name" json:"Name,omitempty"`
+	Locations []string    `protobuf:"bytes,3,rep,name=Locations" json:"Locations,omitempty"`
+	Contracts []*Contract `protobuf:"bytes,4,rep,name=Contracts" json:"Contracts,omitempty"`
+}
+
+func (m *NamedBlockRef) Reset()                    { *m = NamedBlockRef{} }
+func (m *NamedBlockRef) String() string            { return proto1.CompactTextString(m) }
+func (*NamedBlockRef) ProtoMessage()               {}
+func (*NamedBlockRef) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *NamedBlockRef) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *NamedBlockRef) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *NamedBlockRef) GetLocations() []string {
+	if m != nil {
+		return m.Locations
+	}
+	return nil
+}
+
+func (m *NamedBlockRef) GetContracts() []*Contract {
+	if m != nil {
+		return m.Contracts
+	}
+	return nil
+}
+
+type DirBlock struct {
+	ID        string           `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Name      string           `protobuf:"bytes,2,opt,name=Name" json:"Name,omitempty"`
+	Contracts []*Contract      `protobuf:"bytes,3,rep,name=Contracts" json:"Contracts,omitempty"`
+	OwnerID   string           `protobuf:"bytes,4,opt,name=OwnerID" json:"OwnerID,omitempty"`
+	Files     []*NamedBlockRef `protobuf:"bytes,5,rep,name=Files" json:"Files,omitempty"`
+}
+
+func (m *DirBlock) Reset()                    { *m = DirBlock{} }
+func (m *DirBlock) String() string            { return proto1.CompactTextString(m) }
+func (*DirBlock) ProtoMessage()               {}
+func (*DirBlock) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *DirBlock) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *DirBlock) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *DirBlock) GetContracts() []*Contract {
+	if m != nil {
+		return m.Contracts
+	}
+	return nil
+}
+
+func (m *DirBlock) GetOwnerID() string {
+	if m != nil {
+		return m.OwnerID
+	}
+	return ""
+}
+
+func (m *DirBlock) GetFiles() []*NamedBlockRef {
+	if m != nil {
+		return m.Files
+	}
+	return nil
+}
+
+type INodeBlock struct {
+	ID        string      `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	Name      string      `protobuf:"bytes,2,opt,name=Name" json:"Name,omitempty"`
+	Contracts []*Contract `protobuf:"bytes,3,rep,name=Contracts" json:"Contracts,omitempty"`
+	OwnerID   string      `protobuf:"bytes,4,opt,name=OwnerID" json:"OwnerID,omitempty"`
+	Blocks    []*BlockRef `protobuf:"bytes,5,rep,name=Blocks" json:"Blocks,omitempty"`
+	Size      int64       `protobuf:"varint,6,opt,name=Size" json:"Size,omitempty"`
+}
+
+func (m *INodeBlock) Reset()                    { *m = INodeBlock{} }
+func (m *INodeBlock) String() string            { return proto1.CompactTextString(m) }
+func (*INodeBlock) ProtoMessage()               {}
+func (*INodeBlock) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+
+func (m *INodeBlock) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *INodeBlock) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *INodeBlock) GetContracts() []*Contract {
+	if m != nil {
+		return m.Contracts
+	}
+	return nil
+}
+
+func (m *INodeBlock) GetOwnerID() string {
+	if m != nil {
+		return m.OwnerID
+	}
+	return ""
+}
+
+func (m *INodeBlock) GetBlocks() []*BlockRef {
+	if m != nil {
+		return m.Blocks
+	}
+	return nil
+}
+
+func (m *INodeBlock) GetSize() int64 {
+	if m != nil {
+		return m.Size
+	}
+	return 0
+}
+
+type Contract struct {
+	BlockID           string `protobuf:"bytes,1,opt,name=blockID" json:"blockID,omitempty"`
+	BlockSize         int64  `protobuf:"varint,2,opt,name=blockSize" json:"blockSize,omitempty"`
+	RenterID          string `protobuf:"bytes,3,opt,name=renterID" json:"renterID,omitempty"`
+	ProviderID        string `protobuf:"bytes,4,opt,name=providerID" json:"providerID,omitempty"`
+	RenterSignature   string `protobuf:"bytes,5,opt,name=renterSignature" json:"renterSignature,omitempty"`
+	ProviderSignature string `protobuf:"bytes,6,opt,name=providerSignature" json:"providerSignature,omitempty"`
+}
+
+func (m *Contract) Reset()                    { *m = Contract{} }
+func (m *Contract) String() string            { return proto1.CompactTextString(m) }
+func (*Contract) ProtoMessage()               {}
+func (*Contract) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+
+func (m *Contract) GetBlockID() string {
+	if m != nil {
+		return m.BlockID
+	}
+	return ""
+}
+
+func (m *Contract) GetBlockSize() int64 {
+	if m != nil {
+		return m.BlockSize
+	}
+	return 0
+}
+
+func (m *Contract) GetRenterID() string {
+	if m != nil {
+		return m.RenterID
+	}
+	return ""
+}
+
+func (m *Contract) GetProviderID() string {
+	if m != nil {
+		return m.ProviderID
+	}
+	return ""
+}
+
+func (m *Contract) GetRenterSignature() string {
+	if m != nil {
+		return m.RenterSignature
+	}
+	return ""
+}
+
+func (m *Contract) GetProviderSignature() string {
+	if m != nil {
+		return m.ProviderSignature
+	}
+	return ""
 }
 
 type StoreBlockRequest struct {
@@ -60,7 +327,7 @@ type StoreBlockRequest struct {
 func (m *StoreBlockRequest) Reset()                    { *m = StoreBlockRequest{} }
 func (m *StoreBlockRequest) String() string            { return proto1.CompactTextString(m) }
 func (*StoreBlockRequest) ProtoMessage()               {}
-func (*StoreBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*StoreBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
 func (m *StoreBlockRequest) GetBlockId() string {
 	if m != nil {
@@ -82,7 +349,7 @@ type StoreBlockResponse struct {
 func (m *StoreBlockResponse) Reset()                    { *m = StoreBlockResponse{} }
 func (m *StoreBlockResponse) String() string            { return proto1.CompactTextString(m) }
 func (*StoreBlockResponse) ProtoMessage()               {}
-func (*StoreBlockResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*StoreBlockResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
 type GetBlockRequest struct {
 	BlockId string `protobuf:"bytes,1,opt,name=blockId" json:"blockId,omitempty"`
@@ -91,7 +358,7 @@ type GetBlockRequest struct {
 func (m *GetBlockRequest) Reset()                    { *m = GetBlockRequest{} }
 func (m *GetBlockRequest) String() string            { return proto1.CompactTextString(m) }
 func (*GetBlockRequest) ProtoMessage()               {}
-func (*GetBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*GetBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 func (m *GetBlockRequest) GetBlockId() string {
 	if m != nil {
@@ -107,7 +374,7 @@ type GetBlockResponse struct {
 func (m *GetBlockResponse) Reset()                    { *m = GetBlockResponse{} }
 func (m *GetBlockResponse) String() string            { return proto1.CompactTextString(m) }
 func (*GetBlockResponse) ProtoMessage()               {}
-func (*GetBlockResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (*GetBlockResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *GetBlockResponse) GetBlock() *Block {
 	if m != nil {
@@ -116,12 +383,111 @@ func (m *GetBlockResponse) GetBlock() *Block {
 	return nil
 }
 
+type NegotiateRequest struct {
+	Contract *Contract `protobuf:"bytes,1,opt,name=contract" json:"contract,omitempty"`
+}
+
+func (m *NegotiateRequest) Reset()                    { *m = NegotiateRequest{} }
+func (m *NegotiateRequest) String() string            { return proto1.CompactTextString(m) }
+func (*NegotiateRequest) ProtoMessage()               {}
+func (*NegotiateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+
+func (m *NegotiateRequest) GetContract() *Contract {
+	if m != nil {
+		return m.Contract
+	}
+	return nil
+}
+
+type NegotiateResponse struct {
+	Contract   *Contract `protobuf:"bytes,2,opt,name=contract" json:"contract,omitempty"`
+	StoreToken string    `protobuf:"bytes,3,opt,name=StoreToken" json:"StoreToken,omitempty"`
+}
+
+func (m *NegotiateResponse) Reset()                    { *m = NegotiateResponse{} }
+func (m *NegotiateResponse) String() string            { return proto1.CompactTextString(m) }
+func (*NegotiateResponse) ProtoMessage()               {}
+func (*NegotiateResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+
+func (m *NegotiateResponse) GetContract() *Contract {
+	if m != nil {
+		return m.Contract
+	}
+	return nil
+}
+
+func (m *NegotiateResponse) GetStoreToken() string {
+	if m != nil {
+		return m.StoreToken
+	}
+	return ""
+}
+
+type InfoRequest struct {
+}
+
+func (m *InfoRequest) Reset()                    { *m = InfoRequest{} }
+func (m *InfoRequest) String() string            { return proto1.CompactTextString(m) }
+func (*InfoRequest) ProtoMessage()               {}
+func (*InfoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+
+type ProviderInfo struct {
+	ID           string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
+	MaxBlockSize int32  `protobuf:"varint,2,opt,name=maxBlockSize" json:"maxBlockSize,omitempty"`
+}
+
+func (m *ProviderInfo) Reset()                    { *m = ProviderInfo{} }
+func (m *ProviderInfo) String() string            { return proto1.CompactTextString(m) }
+func (*ProviderInfo) ProtoMessage()               {}
+func (*ProviderInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+
+func (m *ProviderInfo) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *ProviderInfo) GetMaxBlockSize() int32 {
+	if m != nil {
+		return m.MaxBlockSize
+	}
+	return 0
+}
+
+type InfoResponse struct {
+	Info *ProviderInfo `protobuf:"bytes,1,opt,name=info" json:"info,omitempty"`
+}
+
+func (m *InfoResponse) Reset()                    { *m = InfoResponse{} }
+func (m *InfoResponse) String() string            { return proto1.CompactTextString(m) }
+func (*InfoResponse) ProtoMessage()               {}
+func (*InfoResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+
+func (m *InfoResponse) GetInfo() *ProviderInfo {
+	if m != nil {
+		return m.Info
+	}
+	return nil
+}
+
 func init() {
+	proto1.RegisterType((*PeerInfo)(nil), "proto.PeerInfo")
 	proto1.RegisterType((*Block)(nil), "proto.Block")
+	proto1.RegisterType((*BlockRef)(nil), "proto.BlockRef")
+	proto1.RegisterType((*NamedBlockRef)(nil), "proto.NamedBlockRef")
+	proto1.RegisterType((*DirBlock)(nil), "proto.DirBlock")
+	proto1.RegisterType((*INodeBlock)(nil), "proto.INodeBlock")
+	proto1.RegisterType((*Contract)(nil), "proto.Contract")
 	proto1.RegisterType((*StoreBlockRequest)(nil), "proto.StoreBlockRequest")
 	proto1.RegisterType((*StoreBlockResponse)(nil), "proto.StoreBlockResponse")
 	proto1.RegisterType((*GetBlockRequest)(nil), "proto.GetBlockRequest")
 	proto1.RegisterType((*GetBlockResponse)(nil), "proto.GetBlockResponse")
+	proto1.RegisterType((*NegotiateRequest)(nil), "proto.NegotiateRequest")
+	proto1.RegisterType((*NegotiateResponse)(nil), "proto.NegotiateResponse")
+	proto1.RegisterType((*InfoRequest)(nil), "proto.InfoRequest")
+	proto1.RegisterType((*ProviderInfo)(nil), "proto.ProviderInfo")
+	proto1.RegisterType((*InfoResponse)(nil), "proto.InfoResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -132,97 +498,163 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for Peer service
+// Client API for Provider service
 
-type PeerClient interface {
+type ProviderClient interface {
+	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error)
+	Negotiate(ctx context.Context, in *NegotiateRequest, opts ...grpc.CallOption) (*NegotiateResponse, error)
 	StoreBlock(ctx context.Context, in *StoreBlockRequest, opts ...grpc.CallOption) (*StoreBlockResponse, error)
 	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (*GetBlockResponse, error)
 }
 
-type peerClient struct {
+type providerClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewPeerClient(cc *grpc.ClientConn) PeerClient {
-	return &peerClient{cc}
+func NewProviderClient(cc *grpc.ClientConn) ProviderClient {
+	return &providerClient{cc}
 }
 
-func (c *peerClient) StoreBlock(ctx context.Context, in *StoreBlockRequest, opts ...grpc.CallOption) (*StoreBlockResponse, error) {
+func (c *providerClient) Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error) {
+	out := new(InfoResponse)
+	err := grpc.Invoke(ctx, "/proto.Provider/Info", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *providerClient) Negotiate(ctx context.Context, in *NegotiateRequest, opts ...grpc.CallOption) (*NegotiateResponse, error) {
+	out := new(NegotiateResponse)
+	err := grpc.Invoke(ctx, "/proto.Provider/Negotiate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *providerClient) StoreBlock(ctx context.Context, in *StoreBlockRequest, opts ...grpc.CallOption) (*StoreBlockResponse, error) {
 	out := new(StoreBlockResponse)
-	err := grpc.Invoke(ctx, "/proto.Peer/StoreBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/proto.Provider/StoreBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *peerClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (*GetBlockResponse, error) {
+func (c *providerClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (*GetBlockResponse, error) {
 	out := new(GetBlockResponse)
-	err := grpc.Invoke(ctx, "/proto.Peer/GetBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/proto.Provider/GetBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for Peer service
+// Server API for Provider service
 
-type PeerServer interface {
+type ProviderServer interface {
+	Info(context.Context, *InfoRequest) (*InfoResponse, error)
+	Negotiate(context.Context, *NegotiateRequest) (*NegotiateResponse, error)
 	StoreBlock(context.Context, *StoreBlockRequest) (*StoreBlockResponse, error)
 	GetBlock(context.Context, *GetBlockRequest) (*GetBlockResponse, error)
 }
 
-func RegisterPeerServer(s *grpc.Server, srv PeerServer) {
-	s.RegisterService(&_Peer_serviceDesc, srv)
+func RegisterProviderServer(s *grpc.Server, srv ProviderServer) {
+	s.RegisterService(&_Provider_serviceDesc, srv)
 }
 
-func _Peer_StoreBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Provider_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProviderServer).Info(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.Provider/Info",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProviderServer).Info(ctx, req.(*InfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Provider_Negotiate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NegotiateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProviderServer).Negotiate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.Provider/Negotiate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProviderServer).Negotiate(ctx, req.(*NegotiateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Provider_StoreBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StoreBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PeerServer).StoreBlock(ctx, in)
+		return srv.(ProviderServer).StoreBlock(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.Peer/StoreBlock",
+		FullMethod: "/proto.Provider/StoreBlock",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PeerServer).StoreBlock(ctx, req.(*StoreBlockRequest))
+		return srv.(ProviderServer).StoreBlock(ctx, req.(*StoreBlockRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Peer_GetBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Provider_GetBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PeerServer).GetBlock(ctx, in)
+		return srv.(ProviderServer).GetBlock(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.Peer/GetBlock",
+		FullMethod: "/proto.Provider/GetBlock",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PeerServer).GetBlock(ctx, req.(*GetBlockRequest))
+		return srv.(ProviderServer).GetBlock(ctx, req.(*GetBlockRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _Peer_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.Peer",
-	HandlerType: (*PeerServer)(nil),
+var _Provider_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "proto.Provider",
+	HandlerType: (*ProviderServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "Info",
+			Handler:    _Provider_Info_Handler,
+		},
+		{
+			MethodName: "Negotiate",
+			Handler:    _Provider_Negotiate_Handler,
+		},
+		{
 			MethodName: "StoreBlock",
-			Handler:    _Peer_StoreBlock_Handler,
+			Handler:    _Provider_StoreBlock_Handler,
 		},
 		{
 			MethodName: "GetBlock",
-			Handler:    _Peer_GetBlock_Handler,
+			Handler:    _Provider_GetBlock_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -232,18 +664,43 @@ var _Peer_serviceDesc = grpc.ServiceDesc{
 func init() { proto1.RegisterFile("skybin.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 207 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x29, 0xce, 0xae, 0x4c,
-	0xca, 0xcc, 0xd3, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x05, 0x53, 0x4a, 0xd2, 0x5c, 0xac,
-	0x4e, 0x39, 0xf9, 0xc9, 0xd9, 0x42, 0x42, 0x5c, 0x2c, 0x2e, 0x89, 0x25, 0x89, 0x12, 0x8c, 0x0a,
-	0x8c, 0x1a, 0x3c, 0x41, 0x60, 0xb6, 0x52, 0x20, 0x97, 0x60, 0x70, 0x49, 0x7e, 0x51, 0x2a, 0x58,
-	0x45, 0x50, 0x6a, 0x61, 0x69, 0x6a, 0x71, 0x89, 0x90, 0x04, 0x17, 0x7b, 0x12, 0x88, 0xef, 0x99,
-	0x02, 0x56, 0xcb, 0x19, 0x04, 0xe3, 0x0a, 0x29, 0x71, 0xb1, 0x82, 0x99, 0x12, 0x4c, 0x40, 0x71,
-	0x6e, 0x23, 0x1e, 0x88, 0x4d, 0x7a, 0x10, 0xdd, 0x10, 0x29, 0x25, 0x11, 0x2e, 0x21, 0x64, 0x23,
-	0x8b, 0x0b, 0xf2, 0xf3, 0x8a, 0x53, 0x95, 0xb4, 0xb9, 0xf8, 0xdd, 0x53, 0x4b, 0x88, 0xb3, 0x46,
-	0xc9, 0x8c, 0x4b, 0x00, 0xa1, 0x18, 0x62, 0x00, 0xc2, 0x6a, 0x46, 0x9c, 0x56, 0x1b, 0x75, 0x31,
-	0x72, 0xb1, 0x04, 0xa4, 0xa6, 0x16, 0x09, 0x39, 0x73, 0x71, 0x21, 0xdc, 0x20, 0x24, 0x01, 0x55,
-	0x8b, 0xe1, 0x53, 0x29, 0x49, 0x2c, 0x32, 0x50, 0x07, 0x33, 0x08, 0xd9, 0x72, 0x71, 0xc0, 0x5c,
-	0x21, 0x24, 0x06, 0x55, 0x88, 0xe6, 0x07, 0x29, 0x71, 0x0c, 0x71, 0x98, 0xf6, 0x24, 0x36, 0xb0,
-	0x8c, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0xb4, 0xbe, 0xbb, 0x5d, 0x95, 0x01, 0x00, 0x00,
+	// 601 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xc4, 0x54, 0xdb, 0x6e, 0xd3, 0x40,
+	0x10, 0xc5, 0x49, 0x1c, 0x9c, 0xa9, 0x4b, 0x9b, 0x6d, 0x45, 0x4d, 0x40, 0x08, 0xed, 0x4b, 0x2b,
+	0x0a, 0x91, 0x08, 0x12, 0x3c, 0x21, 0x20, 0x8d, 0x40, 0x91, 0x50, 0x28, 0x0e, 0x1f, 0x80, 0x13,
+	0x6f, 0x23, 0x2b, 0xad, 0xb7, 0xd8, 0x5b, 0x6e, 0x4f, 0x48, 0x7c, 0x0a, 0xff, 0xc0, 0xa7, 0xf0,
+	0x3d, 0xec, 0x8e, 0x77, 0x7d, 0x89, 0x5b, 0x5a, 0x9e, 0x78, 0xca, 0x78, 0xe6, 0xcc, 0x99, 0x33,
+	0x97, 0x2c, 0xb8, 0xe9, 0xf2, 0xeb, 0x2c, 0x8a, 0xfb, 0xa7, 0x09, 0x17, 0x9c, 0xd8, 0xf8, 0x43,
+	0xfb, 0xe0, 0x1c, 0x32, 0x96, 0x8c, 0xe3, 0x23, 0x4e, 0x6e, 0x40, 0x63, 0x3c, 0xf2, 0xac, 0x7b,
+	0xd6, 0x5e, 0xc7, 0x97, 0x16, 0x21, 0xd0, 0x7a, 0x19, 0x86, 0x89, 0xd7, 0x40, 0x0f, 0xda, 0xf4,
+	0x36, 0xd8, 0xc3, 0x63, 0x3e, 0x5f, 0xaa, 0xe0, 0x28, 0x10, 0x01, 0xc2, 0x5d, 0x1f, 0x6d, 0xba,
+	0x00, 0x07, 0x83, 0x3e, 0x3b, 0xaa, 0x91, 0xdd, 0x81, 0xce, 0x1b, 0x3e, 0x0f, 0x44, 0xc4, 0xe3,
+	0x54, 0x32, 0x36, 0xa5, 0xbb, 0x70, 0x90, 0x87, 0xd0, 0x39, 0xe0, 0xb1, 0x48, 0x82, 0xb9, 0x48,
+	0xbd, 0xa6, 0x8c, 0xae, 0x0d, 0x36, 0x32, 0xa1, 0x7d, 0xe3, 0xf7, 0x0b, 0x04, 0xfd, 0x6e, 0xc1,
+	0xfa, 0x24, 0x38, 0x61, 0xe1, 0x85, 0xe5, 0xa4, 0x3c, 0x05, 0x30, 0xda, 0x95, 0x5d, 0x95, 0xd0,
+	0xfc, 0xab, 0x84, 0xd6, 0xa5, 0x12, 0x7e, 0x5a, 0xe0, 0x8c, 0xa2, 0x24, 0x1b, 0xc6, 0x55, 0xaa,
+	0xff, 0x5b, 0x8b, 0xc4, 0x83, 0xeb, 0x6f, 0x3f, 0xc7, 0x72, 0x33, 0x23, 0x29, 0x46, 0xb1, 0x98,
+	0x4f, 0x72, 0x1f, 0xec, 0x57, 0xd1, 0x31, 0x4b, 0x3d, 0x1b, 0x49, 0xb6, 0x35, 0x49, 0x65, 0x1e,
+	0x7e, 0x06, 0xa1, 0xbf, 0x2c, 0x80, 0xf1, 0x84, 0x87, 0xec, 0x3f, 0xe8, 0xdc, 0x85, 0x36, 0x56,
+	0x35, 0x42, 0x0d, 0x4b, 0xae, 0x51, 0x87, 0x95, 0x8a, 0x69, 0xf4, 0x8d, 0x79, 0x6d, 0x99, 0xdf,
+	0xf4, 0xd1, 0xa6, 0xbf, 0xe5, 0x78, 0x4d, 0x11, 0x55, 0x63, 0xa6, 0xa0, 0xb9, 0x76, 0xf3, 0xa9,
+	0x56, 0x8a, 0x26, 0xe6, 0x37, 0x30, 0xbf, 0x70, 0x90, 0x1e, 0x38, 0x09, 0x8b, 0x05, 0x8a, 0x6b,
+	0x62, 0x62, 0xfe, 0x4d, 0xee, 0x02, 0x48, 0x39, 0x9f, 0xa2, 0xb0, 0x24, 0xbd, 0xe4, 0x21, 0x7b,
+	0xb0, 0x91, 0x61, 0xa7, 0xd1, 0x22, 0x0e, 0xc4, 0x59, 0xc2, 0x64, 0x1b, 0x0a, 0xb4, 0xea, 0x26,
+	0x0f, 0xa0, 0x6b, 0xf2, 0x0a, 0x6c, 0x1b, 0xb1, 0xf5, 0x00, 0x7d, 0x07, 0xdd, 0xa9, 0xe0, 0x09,
+	0xd3, 0x53, 0xf8, 0x78, 0xc6, 0xd2, 0x52, 0x83, 0x61, 0xb5, 0xc1, 0x90, 0x50, 0xb0, 0xd1, 0xc4,
+	0xe6, 0xd6, 0x06, 0x6e, 0x65, 0x86, 0x59, 0x88, 0x6e, 0x03, 0x29, 0x53, 0xa6, 0xa7, 0xf2, 0x9c,
+	0x19, 0xdd, 0x87, 0x8d, 0xd7, 0x4c, 0x5c, 0xad, 0x0c, 0x7d, 0x02, 0x9b, 0x05, 0x38, 0x23, 0x28,
+	0x4a, 0x5b, 0x17, 0x97, 0x7e, 0x0e, 0x9b, 0x13, 0xb6, 0xe0, 0x22, 0x0a, 0x04, 0x33, 0x55, 0xf6,
+	0xc1, 0x99, 0xeb, 0xcd, 0xe9, 0xd4, 0xda, 0xfd, 0xe4, 0x00, 0xfa, 0x01, 0xba, 0x25, 0x02, 0x5d,
+	0xb9, 0xcc, 0xd0, 0xb8, 0x84, 0x41, 0x2d, 0x12, 0xbb, 0x7f, 0xcf, 0x97, 0x2c, 0xd6, 0x6b, 0x2e,
+	0x79, 0xe8, 0x3a, 0xac, 0xa9, 0xd7, 0x4d, 0xab, 0xa3, 0x43, 0x70, 0x0f, 0xcd, 0x96, 0xcf, 0x7b,
+	0xf4, 0x28, 0xb8, 0x27, 0xc1, 0x97, 0x61, 0xe5, 0xa8, 0x6c, 0xbf, 0xe2, 0xa3, 0x4f, 0xc1, 0xcd,
+	0x28, 0xb5, 0xde, 0x5d, 0x68, 0x45, 0xf2, 0x5b, 0x77, 0xbb, 0xa5, 0xb5, 0x96, 0xcb, 0xf8, 0x08,
+	0x18, 0xfc, 0x68, 0xc8, 0xe7, 0x56, 0xbb, 0xc9, 0x23, 0x68, 0xa1, 0x02, 0xa2, 0xf1, 0x25, 0x95,
+	0xbd, 0xad, 0x8a, 0x4f, 0x6f, 0xf4, 0x1a, 0x79, 0x01, 0x9d, 0x7c, 0x5a, 0x64, 0xc7, 0xfc, 0xf1,
+	0x57, 0x16, 0xd0, 0xf3, 0xea, 0x81, 0x9c, 0xe1, 0x40, 0x4f, 0x2b, 0x7b, 0x0f, 0x0c, 0xb2, 0x76,
+	0x91, 0xbd, 0x5b, 0xe7, 0x44, 0x72, 0x92, 0x67, 0xe0, 0x98, 0x6b, 0x21, 0x37, 0x35, 0x70, 0xe5,
+	0xd6, 0x7a, 0x3b, 0x35, 0xbf, 0x49, 0x9f, 0xb5, 0x31, 0xf2, 0xf8, 0x4f, 0x00, 0x00, 0x00, 0xff,
+	0xff, 0xc9, 0xf5, 0xec, 0x7d, 0x91, 0x06, 0x00, 0x00,
 }
